@@ -3,10 +3,26 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "cd contracts && cargo test"
+    "test": "tsc && mocha build/tests/index.spec.js",
+    "gen-key": "ts-node scripts/genKeys.ts",
+    "script" : "ts-node scripts/index.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "@cosmjs/stargate": "^0.28.2",
+    "@terran-one/cosmwasm-vm-js": "^0.2.16",
+    "@types/node": "^20.14.11"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.16",
+    "@types/mocha": "^10.0.7",
+    "chai": "^4.4.1",
+    "mocha": "^10.7.0",
+    "ts-node": "^10.9.2",
+    "tsc": "^2.0.4",
+    "typescript": "^5.5.4"
+  }
 }

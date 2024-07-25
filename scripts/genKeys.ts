@@ -1,4 +1,4 @@
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
+import { DirectSecp256k1HdWallet } from "cosmwasm";
 
 const generateKey = async (): Promise<void> => {
   const wallet = await DirectSecp256k1HdWallet.generate(24);

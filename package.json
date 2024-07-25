@@ -5,7 +5,7 @@
   "scripts": {
     "test": "tsc && mocha build/tests/index.spec.js",
     "gen-key": "ts-node scripts/genKeys.ts",
-    "script" : "ts-node scripts/index.ts"
+    "script": "ts-node scripts/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +14,8 @@
   "dependencies": {
     "@cosmjs/stargate": "^0.28.2",
     "@terran-one/cosmwasm-vm-js": "^0.2.16",
-    "@types/node": "^20.14.11"
+    "@types/node": "^20.14.11",
+    "cosmwasm": "^1.1.1"
   },
   "devDependencies": {
     "@types/chai": "^4.3.16",

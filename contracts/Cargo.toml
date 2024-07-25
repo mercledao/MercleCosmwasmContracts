@@ -1,24 +1,18 @@
 [package]
-name = "mercle_cw_contracts"
+name = "contract"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+opt-level = 3          # Use slightly better optimizations.
+overflow-checks = true # Disable integer overflow checks.
 
-[lib]
-crate-type = ["cdylib", "rlib"]
+[features]
+library = []
 
 [dependencies]
-cosmwasm-std = { version = "1.1.4", features = ["staking"] }
-serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-cw-storage-plus = "0.15.1"
-thiserror = "1"
-schemars = "0.8.1"
-cw-utils = "0.15.1"
-cosmwasm-schema = "1.1.4"
-cw721-016 = { git = "https://github.com/CosmWasm/cw-nfts", tag = "v0.16.0", package = "cw721" }
-cw-ownable = { git = "https://github.com/public-awesome/cw-plus-plus.git" }
-cw2 = "1.1"
-
+cosmwasm-schema = "=1.5.5"
+cosmwasm-std = { version = "=1.5.5", features = ["stargate"] }
+cw-storage-plus = "1.2.0"
 
 [dev-dependencies]
-cw-multi-test = "0.15.1"

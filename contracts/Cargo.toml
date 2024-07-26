@@ -3,12 +3,20 @@ name = "contract"
 version = "0.1.0"
 edition = "2021"
 
-[profile.release]
-opt-level = 3          # Use slightly better optimizations.
-overflow-checks = true # Disable integer overflow checks.
 
-[features]
-library = []
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+overflow-checks = true
 
 [dependencies]
 cosmwasm-schema = "=1.5.5"

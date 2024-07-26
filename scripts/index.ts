@@ -31,6 +31,8 @@ async function main() {
     "auto"
   );
 
+  console.log("Deployed at ", instance.contractAddress);
+
   const countRes = await client.queryContractSmart(instance.contractAddress, {
     current: {},
   });

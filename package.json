@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "tsc && mocha build/tests/index.spec.js",
     "gen-key": "ts-node scripts/genKeys.ts",
-    "script": "ts-node scripts/index.ts"
+    "node": "cmd/node.sh",
+    "compile" : "cmd/build.sh",
+    "test": "tsc && mocha build/tests/index.spec.js"
   },
   "keywords": [],
   "author": "",

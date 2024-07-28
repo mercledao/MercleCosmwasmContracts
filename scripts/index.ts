@@ -1,7 +1,6 @@
 import { Secp256k1HdWallet } from "@cosmjs/amino";
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { Decimal } from "@cosmjs/math";
-import { expect } from "chai";
 import { readFileSync } from "fs";
 import { readFile } from "fs/promises";
 
@@ -16,7 +15,7 @@ async function main() {
   });
   const upload = await client.upload(
     acc.address,
-    readFileSync("./contracts/artifacts/contract.wasm"),
+    readFileSync("./contracts/artifacts/mercle_wasm_contracts.wasm"),
     "auto"
   );
 
@@ -25,7 +24,9 @@ async function main() {
     acc.address,
     upload.codeId,
     {
-      count: "100",
+      name: "test",
+      symbol: "test",
+      minter: acc.address,
     },
     "test",
     "auto"
@@ -33,31 +34,25 @@ async function main() {
 
   console.log("Deployed at ", instance.contractAddress);
 
-  const countRes = await client.queryContractSmart(instance.contractAddress, {
-    current: {},
-  });
-
-  console.log("Testing if correctly initialized");
-  expect(+countRes.message).equal(100);
-
   await client.execute(
     acc.address,
     instance.contractAddress,
-    "increment",
+    {
+      mint: {
+        owner: acc.address,
+        token_uri: "adf",
+      },
+    },
     "auto"
   );
 
-  const countResAgain = await client.queryContractSmart(
-    instance.contractAddress,
-    {
-      current: {},
-    }
-  );
+  const res = await client.queryContractSmart(instance.contractAddress, {
+    nft_info: {
+      token_id: "1",
+    },
+  });
 
-  console.log("Expecting increment");
-  expect(+countResAgain.message).equal(101);
-
-  console.log("Deploy success");
+  console.log(res);
 }
 
 main();

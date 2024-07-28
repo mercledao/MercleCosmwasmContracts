@@ -3,4 +3,5 @@
 build
 keys/*.key
 wasmd/node
+target
 **/.DS_Store

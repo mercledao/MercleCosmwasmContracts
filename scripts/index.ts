@@ -27,6 +27,7 @@ async function main() {
       name: "test",
       symbol: "test",
       minter: acc.address,
+      claim_issuer: acc.address,
     },
     "test",
     "auto"

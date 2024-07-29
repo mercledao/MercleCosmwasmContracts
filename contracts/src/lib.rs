@@ -15,22 +15,14 @@ pub use crate::state::Cw721Contract;
 // `Action` is used in `ExecuteMsg::UpdateOwnership`, `Ownership` is
 // used in `QueryMsg::Ownership`, and `OwnershipError` is used in
 // `ContractError::Ownership`.
-pub use cw_ownable::{Action, Ownership, OwnershipError};
-
 use cosmwasm_std::Empty;
 
 // This is a simple type to let us handle empty extensions
 pub type Extension = Option<Empty>;
 
 // Version info for migration
-pub const CONTRACT_NAME: &str = "crates.io:cw721-base";
+pub const CONTRACT_NAME: &str = "MERCLE_NFT_MEMBERSHIP";
 pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-// currently we only support migrating from 0.16.0. this is ok for now because
-// we have not released any 0.16.x where x != 0
-//
-// TODO: parse semvar so that any version 0.16.x can be migrated from
-pub const EXPECTED_FROM_VERSION: &str = "0.16.0";
 
 pub mod entry {
     use super::*;

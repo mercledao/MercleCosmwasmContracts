@@ -1,15 +1,19 @@
+use crate::helpers::get_key_for_role;
+use cosmwasm_std::{Addr, BlockInfo, CustomMsg, StdResult, Storage};
+use cw721::{ContractInfoResponse, Cw721, Expiration};
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
-use cosmwasm_std::{Addr, BlockInfo, CustomMsg, StdResult, Storage};
-
-use cw721::{ContractInfoResponse, Cw721, Expiration};
-use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
-
-pub const ADMIN_ROLE: &str = "1";
-pub const MINTER_ROLE: &str = "2";
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub enum Role {
+    DefaultAdmin,
+    ClaimIssuer,
+    Minter,
+    Blacklisted,
+}
 
 pub struct Cw721Contract<'a, T, C, E, Q>
 where
@@ -19,10 +23,17 @@ where
 {
     pub contract_info: Item<'a, ContractInfoResponse>,
     pub token_count: Item<'a, u64>,
+
+    pub creator: Item<'a, Addr>,
+    pub single_mint: Item<'a, bool>,
+    pub open_mint: Item<'a, bool>,
+    pub tradable: Item<'a, bool>,
+
     /// Stored as (granter, operator) giving operator full control over granter's account
     pub operators: Map<'a, (&'a Addr, &'a Addr), Expiration>,
     pub tokens: IndexedMap<'a, &'a str, TokenInfo<T>, TokenIndexes<'a, T>>,
     pub role_map: Map<'a, (&'a Addr, &'a str), bool>,
+    pub claim_map: Map<'a, Addr, bool>,
 
     pub(crate) _custom_response: PhantomData<C>,
     pub(crate) _custom_query: PhantomData<Q>,
@@ -53,6 +64,11 @@ where
             "tokens",
             "tokens__owner",
             "role_map",
+            "creator",
+            "is_single_mint",
+            "is_open_mint",
+            "is_tradable",
+            "has_claimed",
         )
     }
 }
@@ -70,6 +86,11 @@ where
         tokens_key: &'a str,
         tokens_owner_key: &'a str,
         role_map_key: &'a str,
+        creator: &'a str,
+        is_single_mint_key: &'a str,
+        is_open_mint_key: &'a str,
+        is_tradable_key: &'a str,
+        has_claimed_key: &'a str,
     ) -> Self {
         let indexes = TokenIndexes {
             owner: MultiIndex::new(token_owner_idx, tokens_key, tokens_owner_key),
@@ -80,6 +101,11 @@ where
             operators: Map::new(operator_key),
             tokens: IndexedMap::new(tokens_key, indexes),
             role_map: Map::new(role_map_key),
+            creator: Item::new(creator),
+            open_mint: Item::new(is_open_mint_key),
+            single_mint: Item::new(is_single_mint_key),
+            tradable: Item::new(is_tradable_key),
+            claim_map: Map::new(has_claimed_key),
             _custom_response: PhantomData,
             _custom_execute: PhantomData,
             _custom_query: PhantomData,
@@ -96,27 +122,54 @@ where
         Ok(val)
     }
 
-    pub fn decrement_tokens(&self, storage: &mut dyn Storage) -> StdResult<u64> {
-        let val = self.token_count(storage)? - 1;
-        self.token_count.save(storage, &val)?;
-        Ok(val)
-    }
-
     pub fn update_role(
         &self,
         storage: &mut dyn Storage,
         address: &Addr,
-        role: &str,
+        role: Role,
         value: bool,
     ) -> StdResult<()> {
-        self.role_map.save(storage, (address, role), &value)?;
+        let key = get_key_for_role(role);
+        self.role_map.save(storage, (address, key), &value)?;
         Ok(())
     }
 
-    pub fn has_role(&self, storage: &dyn Storage, address: &Addr, role: &str) -> bool {
-        self.role_map
-            .load(storage, (address, role))
-            .unwrap_or_default()
+    pub fn has_role(&self, storage: &dyn Storage, address: &Addr, role: Role) -> StdResult<bool> {
+        let key = get_key_for_role(role);
+        let val = self
+            .role_map
+            .load(storage, (address, key))
+            .unwrap_or_default();
+
+        Ok(val)
+    }
+
+    pub fn _is_open_mint(&self, storage: &dyn Storage) -> StdResult<bool> {
+        Ok(self.open_mint.may_load(storage)?.unwrap_or_default())
+    }
+
+    pub fn _set_is_open_mint(&self, storage: &mut dyn Storage, value: bool) -> StdResult<()> {
+        self.open_mint.save(storage, &value)
+    }
+
+    pub fn _is_single_mint(&self, storage: &dyn Storage) -> StdResult<bool> {
+        Ok(self.single_mint.may_load(storage)?.unwrap_or_default())
+    }
+
+    pub fn _set_is_single_mint(&self, storage: &mut dyn Storage, value: bool) -> StdResult<()> {
+        self.single_mint.save(storage, &value)
+    }
+
+    pub fn _is_tradable(&self, storage: &dyn Storage) -> StdResult<bool> {
+        Ok(self.tradable.may_load(storage)?.unwrap_or_default())
+    }
+
+    pub fn _set_is_tradable(&self, storage: &mut dyn Storage, value: bool) -> StdResult<()> {
+        self.tradable.save(storage, &value)
+    }
+
+    pub fn _has_claimed(&self, storage: &dyn Storage, address: Addr) -> StdResult<bool> {
+        Ok(self.claim_map.load(storage, address).unwrap_or_default())
     }
 }
 

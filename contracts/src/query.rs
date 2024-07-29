@@ -1,10 +1,11 @@
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-
+use crate::msg::{
+    CreatorResponse, GetActiveTokenIdResponse, GetTokensForOwnerResponse, HasMintedResponse,
+    HasRoleResponse, IsOpenMintResponse, IsSingleMintResponse, IsTradableResponse, QueryMsg,
+};
+use crate::state::{Approval, Cw721Contract, Role, TokenInfo};
 use cosmwasm_std::{
     to_json_binary, Addr, Binary, BlockInfo, CustomMsg, Deps, Env, Order, StdError, StdResult,
 };
-
 use cw721::{
     AllNftInfoResponse, ApprovalResponse, ApprovalsResponse, ContractInfoResponse, Cw721Query,
     Expiration, NftInfoResponse, NumTokensResponse, OperatorResponse, OperatorsResponse,
@@ -12,9 +13,8 @@ use cw721::{
 };
 use cw_storage_plus::Bound;
 use cw_utils::maybe_addr;
-
-use crate::msg::{MinterResponse, QueryMsg};
-use crate::state::{Approval, Cw721Contract, TokenInfo};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 const DEFAULT_LIMIT: u32 = 10;
 const MAX_LIMIT: u32 = 100;
@@ -248,9 +248,104 @@ where
     E: CustomMsg,
     Q: CustomMsg,
 {
+    fn is_open_mint(&self, deps: Deps) -> StdResult<IsOpenMintResponse> {
+        let value = self._is_open_mint(deps.storage)?;
+        Ok(IsOpenMintResponse { value })
+    }
+
+    fn is_single_mint(&self, deps: Deps) -> StdResult<IsSingleMintResponse> {
+        let value = self._is_single_mint(deps.storage)?;
+        Ok(IsSingleMintResponse { value })
+    }
+
+    fn is_tradable(&self, deps: Deps) -> StdResult<IsTradableResponse> {
+        let value = self._is_tradable(deps.storage)?;
+        Ok(IsTradableResponse { value })
+    }
+
+    fn get_creator(&self, deps: Deps) -> StdResult<CreatorResponse> {
+        let creator = self.creator.may_load(deps.storage)?.unwrap();
+        Ok(CreatorResponse { creator })
+    }
+
+    fn has_minted(&self, deps: Deps, address: Addr) -> StdResult<HasMintedResponse> {
+        let value = self
+            .claim_map
+            .load(deps.storage, address)
+            .unwrap_or_default();
+
+        Ok(HasMintedResponse { value })
+    }
+
+    fn get_active_token_id(
+        &self,
+        deps: Deps,
+        address: Addr,
+    ) -> StdResult<GetActiveTokenIdResponse> {
+        let mut tokens = self
+            .tokens
+            .range(deps.storage, None, None, Order::Descending);
+
+        let (token_id, _) = tokens
+            .find(|result| {
+                if let Ok((_, token_info)) = result {
+                    token_info.owner == address
+                } else {
+                    false
+                }
+            })
+            .unwrap()
+            .unwrap();
+
+        Ok(GetActiveTokenIdResponse { value: token_id })
+    }
+
+    fn get_tokens_for_owner(
+        &self,
+        deps: Deps,
+        address: Addr,
+    ) -> StdResult<GetTokensForOwnerResponse> {
+        let tokens = self
+            .tokens
+            .range(deps.storage, None, None, Order::Ascending);
+
+        let result: Vec<String> = tokens
+            .filter_map(|result| {
+                if let Ok((token_id, token_info)) = result {
+                    if token_info.owner == address {
+                        Some(token_id)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(GetTokensForOwnerResponse { tokens: result })
+    }
+
+    fn address_has_role(
+        &self,
+        deps: Deps,
+        address: Addr,
+        role: Role,
+    ) -> StdResult<HasRoleResponse> {
+        let value = self.has_role(deps.storage, &address, role)?;
+        Ok(HasRoleResponse { value })
+    }
+}
+
+impl<'a, T, C, E, Q> Cw721Contract<'a, T, C, E, Q>
+where
+    T: Serialize + DeserializeOwned + Clone,
+    C: CustomMsg,
+    E: CustomMsg,
+    Q: CustomMsg,
+{
     pub fn query(&self, deps: Deps, env: Env, msg: QueryMsg<Q>) -> StdResult<Binary> {
         match msg {
-            QueryMsg::Minter {} => to_json_binary(&self.minter(deps)?),
             QueryMsg::ContractInfo {} => to_json_binary(&self.contract_info(deps)?),
             QueryMsg::NftInfo { token_id } => to_json_binary(&self.nft_info(deps, token_id)?),
             QueryMsg::OwnerOf {
@@ -262,6 +357,17 @@ where
                 token_id,
                 include_expired.unwrap_or(false),
             )?),
+            QueryMsg::IsOpenMint {} => to_json_binary(&self.is_open_mint(deps)?),
+            QueryMsg::IsTradable {} => to_json_binary(&self.is_tradable(deps)?),
+            QueryMsg::IsSingleMint {} => to_json_binary(&self.is_single_mint(deps)?),
+            QueryMsg::Creator {} => to_json_binary(&self.get_creator(deps)?),
+            QueryMsg::HasMinted { address } => to_json_binary(&self.has_minted(deps, address)?),
+            QueryMsg::GetActiveTokenId { address } => {
+                to_json_binary(&self.get_active_token_id(deps, address)?)
+            }
+            QueryMsg::GetTokensForOwner { address } => {
+                to_json_binary(&self.get_tokens_for_owner(deps, address)?)
+            }
             QueryMsg::AllNftInfo {
                 token_id,
                 include_expired,
@@ -324,21 +430,11 @@ where
                 token_id,
                 include_expired.unwrap_or(false),
             )?),
-            QueryMsg::Ownership {} => to_json_binary(&Self::ownership(deps)?),
+            QueryMsg::HasRole { address, role } => {
+                to_json_binary(&self.address_has_role(deps, address, role)?)
+            }
             QueryMsg::Extension { msg: _ } => Ok(Binary::default()),
         }
-    }
-
-    pub fn minter(&self, deps: Deps) -> StdResult<MinterResponse> {
-        let minter = cw_ownable::get_ownership(deps.storage)?
-            .owner
-            .map(|a| a.into_string());
-
-        Ok(MinterResponse { minter })
-    }
-
-    pub fn ownership(deps: Deps) -> StdResult<cw_ownable::Ownership<Addr>> {
-        cw_ownable::get_ownership(deps.storage)
     }
 }
 

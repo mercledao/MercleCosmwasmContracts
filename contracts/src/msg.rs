@@ -1,7 +1,7 @@
+use crate::state::Role;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Binary;
+use cosmwasm_std::{Addr, Binary};
 use cw721::Expiration;
-use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 use schemars::JsonSchema;
 
 #[cw_serde]
@@ -14,17 +14,24 @@ pub struct InstantiateMsg {
     /// The minter is the only one who can create new NFTs.
     /// This is designed for a base NFT that is controlled by an external program
     /// or contract. You will likely replace this with custom logic in custom NFTs
-    pub minter: String,
+    pub minter: Addr,
+    pub claim_issuer: Addr,
+
+    pub is_open_mint: bool,
+    pub is_single_mint: bool,
+    pub is_tradable: bool,
 }
 
 /// This is like Cw721ExecuteMsg but we add a Mint command for an owner
 /// to make this stand-alone. You will likely want to remove mint and
 /// use other control logic in any contract that inherits this.
-#[cw_ownable_execute]
 #[cw_serde]
 pub enum ExecuteMsg<T, E> {
     /// Transfer is a base message to move a token to another account without triggering actions
-    TransferNft { recipient: String, token_id: String },
+    TransferNft {
+        recipient: String,
+        token_id: String,
+    },
     /// Send is a base message to transfer a token to a contract and trigger an action
     /// on the receiving contract.
     SendNft {
@@ -40,7 +47,10 @@ pub enum ExecuteMsg<T, E> {
         expires: Option<Expiration>,
     },
     /// Remove previously granted Approval
-    Revoke { spender: String, token_id: String },
+    Revoke {
+        spender: String,
+        token_id: String,
+    },
     /// Allows operator to transfer / send any token from the owner's account.
     /// If expiration is set, then this allowance has a time/height limit
     ApproveAll {
@@ -48,7 +58,9 @@ pub enum ExecuteMsg<T, E> {
         expires: Option<Expiration>,
     },
     /// Remove previously granted ApproveAll permission
-    RevokeAll { operator: String },
+    RevokeAll {
+        operator: String,
+    },
 
     /// Mint a new NFT, can only be called by the contract minter
     Mint {
@@ -62,14 +74,44 @@ pub enum ExecuteMsg<T, E> {
         extension: T,
     },
 
+    SetIsTradable {
+        value: bool,
+    },
+
+    SetIsSingleMint {
+        value: bool,
+    },
+
+    GrantRole {
+        role: Role,
+        address: Addr,
+    },
+
+    RevokeRole {
+        role: Role,
+        address: Addr,
+    },
+
+    SetIsOpenMint {
+        value: bool,
+    },
+
+    SetHasMinted {
+        address: Addr,
+        value: bool,
+    },
+
     /// Burn an NFT the sender has access to
-    Burn { token_id: String },
+    Burn {
+        token_id: String,
+    },
 
     /// Extension msg
-    Extension { msg: E },
+    Extension {
+        msg: E,
+    },
 }
 
-#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg<Q: JsonSchema> {
@@ -113,6 +155,12 @@ pub enum QueryMsg<Q: JsonSchema> {
     #[returns(cw721::NumTokensResponse)]
     NumTokens {},
 
+    #[returns(GetActiveTokenIdResponse)]
+    GetActiveTokenId { address: Addr },
+
+    #[returns(GetTokensForOwnerResponse)]
+    GetTokensForOwner { address: Addr },
+
     /// With MetaData Extension.
     /// Returns top-level metadata about the contract
     #[returns(cw721::ContractInfoResponse)]
@@ -148,9 +196,23 @@ pub enum QueryMsg<Q: JsonSchema> {
         limit: Option<u32>,
     },
 
-    /// Return the minter
-    #[returns(MinterResponse)]
-    Minter {},
+    #[returns(IsOpenMintResponse)]
+    IsOpenMint {},
+
+    #[returns(IsSingleMintResponse)]
+    IsSingleMint {},
+
+    #[returns(IsTradableResponse)]
+    IsTradable {},
+
+    #[returns(CreatorResponse)]
+    Creator {},
+
+    #[returns(HasMintedResponse)]
+    HasMinted { address: Addr },
+
+    #[returns(HasRoleResponse)]
+    HasRole { address: Addr, role: Role },
 
     /// Extension query
     #[returns(())]
@@ -161,4 +223,44 @@ pub enum QueryMsg<Q: JsonSchema> {
 #[cw_serde]
 pub struct MinterResponse {
     pub minter: Option<String>,
+}
+
+#[cw_serde]
+pub struct IsOpenMintResponse {
+    pub value: bool,
+}
+
+#[cw_serde]
+pub struct IsSingleMintResponse {
+    pub value: bool,
+}
+
+#[cw_serde]
+pub struct IsTradableResponse {
+    pub value: bool,
+}
+
+#[cw_serde]
+pub struct CreatorResponse {
+    pub creator: Addr,
+}
+
+#[cw_serde]
+pub struct HasMintedResponse {
+    pub value: bool,
+}
+
+#[cw_serde]
+pub struct HasRoleResponse {
+    pub value: bool,
+}
+
+#[cw_serde]
+pub struct GetActiveTokenIdResponse {
+    pub value: String,
+}
+
+#[cw_serde]
+pub struct GetTokensForOwnerResponse {
+    pub tokens: Vec<String>,
 }

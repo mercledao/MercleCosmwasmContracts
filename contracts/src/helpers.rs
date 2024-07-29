@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     to_json_binary, Addr, CosmosMsg, CustomMsg, QuerierWrapper, StdResult, WasmMsg, WasmQuery,
@@ -10,8 +9,7 @@ use cw721::{
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-
-use crate::{ExecuteMsg, QueryMsg};
+use crate::{state::Role, ExecuteMsg, QueryMsg};
 
 #[cw_serde]
 pub struct Cw721Contract<Q: CustomMsg, E: CustomMsg>(
@@ -185,5 +183,14 @@ impl<Q: CustomMsg, E: CustomMsg> Cw721Contract<Q, E> {
     /// returns true if the contract supports the enumerable extension
     pub fn has_enumerable(&self, querier: &QuerierWrapper) -> bool {
         self.tokens(querier, self.addr(), None, Some(1)).is_ok()
+    }
+}
+
+pub fn get_key_for_role<'a>(role: Role) -> &'a str {
+    match role {
+        Role::DefaultAdmin => "1",
+        Role::ClaimIssuer => "2",
+        Role::Minter => "3",
+        Role::Blacklisted => "4",
     }
 }

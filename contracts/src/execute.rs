@@ -1,14 +1,10 @@
-use cw_ownable::OwnershipError;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-
-use cosmwasm_std::{Binary, CustomMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
-
-use cw721::{ContractInfoResponse, Cw721Execute, Cw721ReceiveMsg, Expiration};
-
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg};
-use crate::state::{Approval, Cw721Contract, TokenInfo};
+use crate::state::{Approval, Cw721Contract, Role, TokenInfo};
+use cosmwasm_std::{Addr, Binary, CustomMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cw721::{ContractInfoResponse, Cw721Execute, Cw721ReceiveMsg, Expiration};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 impl<'a, T, C, E, Q> Cw721Contract<'a, T, C, E, Q>
 where
@@ -29,8 +25,17 @@ where
             symbol: msg.symbol,
         };
         self.contract_info.save(deps.storage, &info)?;
+        self.creator.save(deps.storage, &_info.sender)?;
 
-        cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.minter))?;
+        self.update_role(deps.storage, &msg.claim_issuer, Role::ClaimIssuer, true)?;
+        self.update_role(deps.storage, &_info.sender, Role::ClaimIssuer, true)?;
+        self.update_role(deps.storage, &_info.sender, Role::DefaultAdmin, true)?;
+
+        self.update_role(deps.storage, &_info.sender, Role::Minter, true)?;
+
+        self.open_mint.save(deps.storage, &msg.is_open_mint)?;
+        self.single_mint.save(deps.storage, &msg.is_single_mint)?;
+        self.tradable.save(deps.storage, &msg.is_tradable)?;
 
         Ok(Response::default())
     }
@@ -70,13 +75,19 @@ where
                 msg,
             } => self.send_nft(deps, env, info, contract, token_id, msg),
             ExecuteMsg::Burn { token_id } => self.burn(deps, env, info, token_id),
-            ExecuteMsg::UpdateOwnership(action) => Self::update_ownership(deps, env, info, action),
+            ExecuteMsg::GrantRole { role, address } => self.grant_role(deps, info, address, role),
+            ExecuteMsg::RevokeRole { role, address } => self.revoke_role(deps, info, address, role),
+            ExecuteMsg::SetIsOpenMint { value } => self.set_open_mint(deps, info, value),
+            ExecuteMsg::SetIsTradable { value } => self.set_is_tradable(deps, info, value),
+            ExecuteMsg::SetIsSingleMint { value } => self.set_single_mint(deps, info, value),
+            ExecuteMsg::SetHasMinted { address, value } => {
+                self.set_has_minted(deps, info, address, value)
+            }
             ExecuteMsg::Extension { msg: _ } => Ok(Response::default()),
         }
     }
 }
 
-// TODO pull this into some sort of trait extension??
 impl<'a, T, C, E, Q> Cw721Contract<'a, T, C, E, Q>
 where
     T: Serialize + DeserializeOwned + Clone,
@@ -92,42 +103,129 @@ where
         token_uri: Option<String>,
         extension: T,
     ) -> Result<Response<C>, ContractError> {
-        cw_ownable::assert_owner(deps.storage, &info.sender)?;
+        let address = deps.api.addr_validate(&owner)?;
+
+        if self.has_role(deps.storage, &address, Role::Blacklisted)? {
+            return Err(ContractError::Blacklisted {});
+        }
+
+        if !self.has_role(deps.storage, &info.sender, Role::Minter)?
+            && !self._is_open_mint(deps.storage)?
+        {
+            return Err(ContractError::Unauthorized {});
+        }
+
+        if self._is_single_mint(deps.storage)?
+            && self._has_claimed(deps.storage, address.to_owned())?
+        {
+            return Err(ContractError::Claimed {});
+        }
 
         // create the token
         let token = TokenInfo {
-            owner: deps.api.addr_validate(&owner)?,
+            owner: address.to_owned(),
             approvals: vec![],
             token_uri,
             extension,
         };
-        let current = self.token_count(deps.storage)?;
 
-        let token_id = (current + 1).to_string();
+        self.increment_tokens(deps.storage)?;
+        let current = self.token_count(deps.storage)?.to_string();
 
         self.tokens
-            .update(deps.storage, &token_id  , |old| match old {
+            .update(deps.storage, &current, |old| match old {
                 Some(_) => Err(ContractError::Claimed {}),
                 None => Ok(token),
             })?;
 
-        self.increment_tokens(deps.storage)?;
+        self.claim_map.save(deps.storage, address, &true)?;
 
         Ok(Response::new()
             .add_attribute("action", "mint")
             .add_attribute("minter", info.sender)
             .add_attribute("owner", owner)
-            .add_attribute("token_id", token_id))
+            .add_attribute("token_id", current))
     }
 
-    pub fn update_ownership(
+    pub fn grant_role(
+        &self,
         deps: DepsMut,
-        env: Env,
         info: MessageInfo,
-        action: cw_ownable::Action,
+        address: Addr,
+        role: Role,
     ) -> Result<Response<C>, ContractError> {
-        let ownership = cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
-        Ok(Response::new().add_attributes(ownership.into_attributes()))
+        if !self.has_role(deps.storage, &info.sender, Role::DefaultAdmin)? {
+            return Err(ContractError::Unauthorized {});
+        }
+        self.update_role(deps.storage, &address, role, true)?;
+        Ok(Response::new())
+    }
+
+    pub fn revoke_role(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        address: Addr,
+        role: Role,
+    ) -> Result<Response<C>, ContractError> {
+        if !self.has_role(deps.storage, &info.sender, Role::DefaultAdmin)? {
+            return Err(ContractError::Unauthorized {});
+        }
+        self.update_role(deps.storage, &address, role, false)?;
+        Ok(Response::new())
+    }
+
+    pub fn set_open_mint(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        value: bool,
+    ) -> Result<Response<C>, ContractError> {
+        if !self.has_role(deps.storage, &info.sender, Role::DefaultAdmin)? {
+            return Err(ContractError::Unauthorized {});
+        }
+        self._set_is_open_mint(deps.storage, value)?;
+        Ok(Response::new())
+    }
+
+    pub fn set_single_mint(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        value: bool,
+    ) -> Result<Response<C>, ContractError> {
+        if !self.has_role(deps.storage, &info.sender, Role::DefaultAdmin)? {
+            return Err(ContractError::Unauthorized {});
+        }
+        self._set_is_single_mint(deps.storage, value)?;
+        Ok(Response::new())
+    }
+
+    pub fn set_is_tradable(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        value: bool,
+    ) -> Result<Response<C>, ContractError> {
+        if !self.has_role(deps.storage, &info.sender, Role::DefaultAdmin)? {
+            return Err(ContractError::Unauthorized {});
+        }
+        self._set_is_tradable(deps.storage, value)?;
+        Ok(Response::new())
+    }
+
+    pub fn set_has_minted(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        address: Addr,
+        value: bool,
+    ) -> Result<Response<C>, ContractError> {
+        if !self.has_role(deps.storage, &info.sender, Role::DefaultAdmin)? {
+            return Err(ContractError::Unauthorized {});
+        }
+        self.claim_map.save(deps.storage, address, &value)?;
+        Ok(Response::new())
     }
 }
 
@@ -269,10 +367,9 @@ where
         token_id: String,
     ) -> Result<Response<C>, ContractError> {
         let token = self.tokens.load(deps.storage, &token_id)?;
-        self.check_can_send(deps.as_ref(), &env, &info, &token)?;
+        self.check_can_send(deps.as_ref(), &env, &info, &token, true)?;
 
         self.tokens.remove(deps.storage, &token_id)?;
-        self.decrement_tokens(deps.storage)?;
 
         Ok(Response::new()
             .add_attribute("action", "burn")
@@ -299,7 +396,7 @@ where
     ) -> Result<TokenInfo<T>, ContractError> {
         let mut token = self.tokens.load(deps.storage, token_id)?;
         // ensure we have permissions
-        self.check_can_send(deps.as_ref(), env, info, &token)?;
+        self.check_can_send(deps.as_ref(), env, info, &token, false)?;
         // set owner and remove existing approvals
         token.owner = deps.api.addr_validate(recipient)?;
         token.approvals = vec![];
@@ -365,12 +462,12 @@ where
         match op {
             Some(ex) => {
                 if ex.is_expired(&env.block) {
-                    Err(ContractError::Ownership(OwnershipError::NotOwner))
+                    Err(ContractError::NotOwner {})
                 } else {
                     Ok(())
                 }
             }
-            None => Err(ContractError::Ownership(OwnershipError::NotOwner)),
+            None => Err(ContractError::NotOwner {}),
         }
     }
 
@@ -381,7 +478,13 @@ where
         env: &Env,
         info: &MessageInfo,
         token: &TokenInfo<T>,
+        allow_blacklisted: bool,
     ) -> Result<(), ContractError> {
+        if !allow_blacklisted && self.has_role(deps.storage, &info.sender, Role::Blacklisted)?
+            || self.has_role(deps.storage, &token.owner, Role::Blacklisted)?
+        {
+            return Err(ContractError::Blacklisted {});
+        }
         // owner can send
         if token.owner == info.sender {
             return Ok(());
@@ -403,12 +506,12 @@ where
         match op {
             Some(ex) => {
                 if ex.is_expired(&env.block) {
-                    Err(ContractError::Ownership(OwnershipError::NotOwner))
+                    Err(ContractError::NotOwner {})
                 } else {
                     Ok(())
                 }
             }
-            None => Err(ContractError::Ownership(OwnershipError::NotOwner)),
+            None => Err(ContractError::NotOwner {}),
         }
     }
 }

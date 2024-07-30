@@ -1,1 +1,0 @@
-f9367c803694a9e69f96206a9a16d82394712ac9cb3714fc4281c3ce82c0ac94  mercle_wasm_contracts.wasm

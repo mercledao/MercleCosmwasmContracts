@@ -1,21 +1,28 @@
-import { Secp256k1HdWallet } from "@cosmjs/amino";
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { Decimal } from "@cosmjs/math";
+import { sha256 } from "@cosmjs/crypto";
+import { fromHex } from "@cosmjs/encoding";
+import { DirectSecp256k1Wallet } from "@cosmjs/proto-signing";
+import { GasPrice } from "@cosmjs/stargate";
 import { readFileSync } from "fs";
-import { readFile } from "fs/promises";
 
 const rpc = "http://localhost:26657";
 
 async function main() {
-  const signer = await getAliceSignerFromMnemonic();
+  const signer = await getSigner(1);
   const [acc] = await signer.getAccounts();
 
+  const signer2 = await getSigner(2);
+  const [acc2] = await signer.getAccounts();
+
   const client = await SigningCosmWasmClient.connectWithSigner(rpc, signer, {
-    gasPrice: { amount: Decimal.fromUserInput("0.1", 3), denom: "uxion" },
+    gasPrice: GasPrice.fromString("0.43uxion"),
   });
+
   const upload = await client.upload(
     acc.address,
-    readFileSync("./contracts/artifacts/mercle_wasm_contracts.wasm"),
+    readFileSync(
+      "./contracts/MintWithClaim/artifacts/mercle_mint_with_claim.wasm"
+    ),
     "auto"
   );
 
@@ -24,10 +31,7 @@ async function main() {
     acc.address,
     upload.codeId,
     {
-      name: "test",
-      symbol: "test",
-      minter: acc.address,
-      claim_issuer: acc.address,
+      treasury: acc.address,
     },
     "test",
     "auto"
@@ -35,34 +39,22 @@ async function main() {
 
   console.log("Deployed at ", instance.contractAddress);
 
-  await client.execute(
-    acc.address,
-    instance.contractAddress,
-    {
-      mint: {
-        owner: acc.address,
-        token_uri: "adf",
-      },
+  const message = {
+    message: {
+      to: acc2.address,
+      from: acc.address,
     },
-    "auto"
-  );
+  };
 
-  const res = await client.queryContractSmart(instance.contractAddress, {
-    nft_info: {
-      token_id: "1",
-    },
-  });
+  const messageString = JSON.stringify(message);
+  const messageHash = sha256(new TextEncoder().encode(messageString));
 
-  console.log(res);
+  console.log(messageHash);
 }
 
 main();
 
-async function getAliceSignerFromMnemonic() {
-  return Secp256k1HdWallet.fromMnemonic(
-    (await readFile("./keys/account1.key")).toString(),
-    {
-      prefix: "xion",
-    }
-  );
+async function getSigner(num: number) {
+  const key = readFileSync(`keys/account${num}.key`).toString().trim();
+  return DirectSecp256k1Wallet.fromKey(fromHex(key), "xion");
 }

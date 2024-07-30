@@ -1,5 +1,5 @@
 [package]
-name = "mercle_wasm_contracts"
+name = "mercle_nft_membership"
 version = "1.0.0"
 edition = "2021"
 

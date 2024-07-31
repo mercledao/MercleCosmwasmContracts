@@ -25,7 +25,7 @@ pub enum QueryMsg<Q: JsonSchema> {
 
 #[cw_serde]
 pub struct VerifyClaimResponse {
-    pub value: bool,
+    pub value: Vec<u8>,
 }
 
 #[cw_serde]

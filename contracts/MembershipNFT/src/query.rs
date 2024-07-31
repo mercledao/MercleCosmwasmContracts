@@ -1,6 +1,7 @@
 use crate::msg::{
-    CreatorResponse, GetActiveTokenIdResponse, GetTokensForOwnerResponse, HasMintedResponse,
-    HasRoleResponse, IsOpenMintResponse, IsSingleMintResponse, IsTradableResponse, QueryMsg,
+    CreatorResponse, GetActiveTokenIdResponse, GetTokenDetailsBulkResponse,
+    GetTokensForOwnerResponse, HasMintedResponse, HasRoleResponse, IsOpenMintResponse,
+    IsSingleMintResponse, IsTradableResponse, QueryMsg,
 };
 use crate::state::{Approval, Cw721Contract, Role, TokenInfo};
 use cosmwasm_std::{
@@ -286,18 +287,43 @@ where
             .tokens
             .range(deps.storage, None, None, Order::Descending);
 
-        let (token_id, _) = tokens
-            .find(|result| {
-                if let Ok((_, token_info)) = result {
-                    token_info.owner == address
-                } else {
-                    false
-                }
-            })
-            .unwrap()
-            .unwrap();
+        // Find the token where the owner matches the provided address
+        let token = tokens.find(|result| {
+            if let Ok((_, token_info)) = result {
+                token_info.owner == address
+            } else {
+                false
+            }
+        });
 
-        Ok(GetActiveTokenIdResponse { value: token_id })
+        if token.is_none() {
+            return Err(StdError::generic_err("No tokens"));
+        }
+
+        Ok(GetActiveTokenIdResponse {
+            value: token.unwrap().unwrap().0,
+        })
+    }
+
+    fn get_token_details_bulk(
+        &self,
+        deps: Deps,
+        start_after: Option<String>,
+        limit: Option<u32>,
+    ) -> StdResult<GetTokenDetailsBulkResponse<T>> {
+        let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+        let start = start_after.map(|s| Bound::ExclusiveRaw(s.into()));
+
+        let tokens: StdResult<Vec<(String, TokenInfo<T>)>> = self
+            .tokens
+            .range(deps.storage, start, None, Order::Ascending)
+            .take(limit)
+            .map(|item| item.map(|(k, v)| (k, v)))
+            .collect();
+
+        Ok(GetTokenDetailsBulkResponse {
+            tokens: tokens.unwrap(),
+        })
     }
 
     fn get_tokens_for_owner(
@@ -364,6 +390,9 @@ where
             QueryMsg::HasMinted { address } => to_json_binary(&self.has_minted(deps, address)?),
             QueryMsg::GetActiveTokenId { address } => {
                 to_json_binary(&self.get_active_token_id(deps, address)?)
+            }
+            QueryMsg::GetTokenDetailsBulk { start_after, limit } => {
+                to_json_binary(&self.get_token_details_bulk(deps, start_after, limit)?)
             }
             QueryMsg::GetTokensForOwner { address } => {
                 to_json_binary(&self.get_tokens_for_owner(deps, address)?)

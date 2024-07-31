@@ -1,4 +1,4 @@
-use crate::state::Role;
+use crate::state::{Role, TokenInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary};
 use cw721::Expiration;
@@ -196,6 +196,12 @@ pub enum QueryMsg<Q: JsonSchema> {
         limit: Option<u32>,
     },
 
+    #[returns[GetTokenDetailsBulkResponse<Empty>]]
+    GetTokenDetailsBulk {
+        start_after: Option<String>,
+        limit: Option<u32>,
+    },
+
     #[returns(IsOpenMintResponse)]
     IsOpenMint {},
 
@@ -263,4 +269,9 @@ pub struct GetActiveTokenIdResponse {
 #[cw_serde]
 pub struct GetTokensForOwnerResponse {
     pub tokens: Vec<String>,
+}
+
+#[cw_serde]
+pub struct GetTokenDetailsBulkResponse<T> {
+    pub tokens: Vec<(String, TokenInfo<T>)>,
 }

@@ -1,1 +1,1 @@
-741ab746960766689ef276201ff062a43d25c4f665f95a2449879c15027293e3  mercle_nft_membership.wasm
+c6b906dc00f04bd4f5f82e2680f9da5e50402b2cebf3aad83fbbcd0a27b8dc5b  mercle_nft_membership.wasm

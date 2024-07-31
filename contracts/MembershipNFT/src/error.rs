@@ -9,11 +9,17 @@ pub enum ContractError {
     #[error(transparent)]
     Version(#[from] cw2::VersionError),
 
-    #[error("token_id already claimed")]
+    #[error("Already claimed")]
     Claimed {},
+
+    #[error("No Tokens")]
+    NoTokens {},
 
     #[error("Not owner")]
     NotOwner {},
+
+    #[error("Soulbound Token!")]
+    Souldbound {},
 
     #[error("Unauthorized")]
     Unauthorized {},

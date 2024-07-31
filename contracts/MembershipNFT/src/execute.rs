@@ -32,6 +32,7 @@ where
         self.update_role(deps.storage, &_info.sender, Role::DefaultAdmin, true)?;
 
         self.update_role(deps.storage, &_info.sender, Role::Minter, true)?;
+        self.update_role(deps.storage, &msg.minter, Role::Minter, true)?;
 
         self.open_mint.save(deps.storage, &msg.is_open_mint)?;
         self.single_mint.save(deps.storage, &msg.is_single_mint)?;
@@ -105,7 +106,9 @@ where
     ) -> Result<Response<C>, ContractError> {
         let address = deps.api.addr_validate(&owner)?;
 
-        if self.has_role(deps.storage, &address, Role::Blacklisted)? {
+        if self.has_role(deps.storage, &address, Role::Blacklisted)?
+            || self.has_role(deps.storage, &info.sender, Role::Blacklisted)?
+        {
             return Err(ContractError::Blacklisted {});
         }
 
@@ -478,12 +481,18 @@ where
         env: &Env,
         info: &MessageInfo,
         token: &TokenInfo<T>,
-        allow_blacklisted: bool,
+        is_burn: bool,
     ) -> Result<(), ContractError> {
-        if !allow_blacklisted && self.has_role(deps.storage, &info.sender, Role::Blacklisted)?
-            || self.has_role(deps.storage, &token.owner, Role::Blacklisted)?
-        {
-            return Err(ContractError::Blacklisted {});
+        if !is_burn {
+            if self.has_role(deps.storage, &info.sender, Role::Blacklisted)?
+                || self.has_role(deps.storage, &token.owner, Role::Blacklisted)?
+            {
+                return Err(ContractError::Blacklisted {});
+            }
+        }
+
+        if !self._is_tradable(deps.storage)? {
+            return Err(ContractError::Souldbound {});
         }
         // owner can send
         if token.owner == info.sender {

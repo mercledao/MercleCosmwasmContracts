@@ -3,12 +3,6 @@ use cosmwasm_std::{Addr, Binary};
 use schemars::JsonSchema;
 
 #[cw_serde]
-pub struct Message {
-    pub to: String,
-    pub from: String,
-}
-
-#[cw_serde]
 pub struct InstantiateMsg {
     pub treasury: Addr,
 }
@@ -20,7 +14,10 @@ pub enum ExecuteMsg {}
 #[derive(QueryResponses)]
 pub enum QueryMsg<Q: JsonSchema> {
     #[returns(VerifyClaimResponse)]
-    VerifySign { message: Message, signature: Binary },
+    VerifySign { message: String, signature: Binary },
+
+    #[returns(TestResponse)]
+    Test {},
     /// Extension query
     #[returns(())]
     Extension { msg: Q },
@@ -28,5 +25,10 @@ pub enum QueryMsg<Q: JsonSchema> {
 
 #[cw_serde]
 pub struct VerifyClaimResponse {
+    pub value: bool,
+}
+
+#[cw_serde]
+pub struct TestResponse {
     pub value: bool,
 }

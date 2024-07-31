@@ -1,7 +1,8 @@
-use crate::msg::{Message, QueryMsg};
+use crate::msg::{QueryMsg, TestResponse, VerifyClaimResponse};
 use crate::state::MintWithClaimContract;
-use cosmwasm_std::{to_json_binary, Binary, CustomMsg, Deps, Env, StdError, StdResult};
+use cosmwasm_std::{to_json_binary, Binary, CustomMsg, Deps, Env, StdResult};
 use sha2::Digest;
+use sha3::Keccak256;
 
 impl<'a, C, E, Q> MintWithClaimContract<'a, C, E, Q>
 where
@@ -13,6 +14,7 @@ where
             QueryMsg::VerifySign { message, signature } => {
                 to_json_binary(&self.verify_claim(_deps, message, signature)?)
             }
+            QueryMsg::Test {  } => to_json_binary(&self.test()?),
             QueryMsg::Extension { msg: _ } => Ok(Binary::default()),
         }
     }
@@ -23,24 +25,28 @@ where
     E: CustomMsg,
     Q: CustomMsg,
 {
-    fn verify_claim(&self, deps: Deps, message: Message, signature: Binary) -> StdResult<bool> {
-        let claim_json = serde_json::to_string(&message)
-            .map_err(|_| StdError::generic_err("Serialization errro!"))?;
+    fn verify_claim(
+        &self,
+        deps: Deps,
+        message: String,
+        signature: Binary,
+    ) -> StdResult<VerifyClaimResponse> {
+        let message_hash = keccak_256(message.as_bytes());
+        let pub_key_result = deps
+            .api
+            .secp256k1_recover_pubkey(&message_hash, &signature, 0);
 
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(claim_json.as_bytes());
-        let message_hash = hasher.finalize();
-
-        let is_valid = deps.api.secp256k1_verify(
-            &message_hash,
-            &signature,
-            &message.from.as_bytes().to_vec(),
-        )?;
-
-        if !is_valid {
-            return Err(StdError::generic_err("Invalid signature"));
+        if let Err(_) = pub_key_result {
+            return Ok(VerifyClaimResponse { value: false });
         }
-
-        Ok(true)
+        Ok(VerifyClaimResponse { value: true })
     }
+
+    fn test(&self) -> StdResult<TestResponse> {
+        Ok(TestResponse { value: true })
+    }
+}
+
+pub fn keccak_256(data: &[u8]) -> [u8; 32] {
+    Keccak256::digest(data).into()
 }

@@ -1,6 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary};
-use schemars::JsonSchema;
+
+use crate::state::Role;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -8,19 +9,31 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
-pub enum ExecuteMsg {}
+pub struct Message {
+    pub amount: u128,
+    pub signature: Binary,
+    pub recovery_byte: u8,
+}
+
+#[cw_serde]
+pub enum ExecuteMsg {
+    SetTreasury { address: Addr },
+    GrantRole { role: Role, address: Addr },
+    RevokeRole { role: Role, address: Addr },
+    MintWithClaim { message: Message },
+}
 
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum QueryMsg<Q: JsonSchema> {
+pub enum QueryMsg {
     #[returns(VerifyClaimResponse)]
-    VerifySign { message: String, signature: Binary },
+    VerifySign { message: Binary, signature: Binary, recovery_byte : u8 },
 
-    #[returns(TestResponse)]
-    Test {},
-    /// Extension query
-    #[returns(())]
-    Extension { msg: Q },
+    #[returns(TreasuryResponse)]
+    GetTreasury {},
+
+    #[returns(HasRoleResponse)]
+    HasRole { address: Addr, role: Role },
 }
 
 #[cw_serde]
@@ -29,6 +42,11 @@ pub struct VerifyClaimResponse {
 }
 
 #[cw_serde]
-pub struct TestResponse {
+pub struct HasRoleResponse {
     pub value: bool,
+}
+
+#[cw_serde]
+pub struct TreasuryResponse {
+    pub value: Option<Addr>,
 }

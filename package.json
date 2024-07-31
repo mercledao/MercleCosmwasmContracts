@@ -6,7 +6,9 @@
     "gen-key": "ts-node scripts/genKeys.ts",
     "node": "cmd/node.sh",
     "compile": "cmd/build.sh",
-    "test": "mocha -r ts-node/register --timeout 100000 'tests/**/*.test.ts'"
+    "test": "mocha -r ts-node/register --timeout 100000 'tests/**/*.test.ts'",
+    "test:membership": "mocha -r ts-node/register --timeout 100000 'tests/MembershipNFT.test.ts'",
+    "test:mwc": "mocha -r ts-node/register --timeout 100000 'tests/MintWithClaim.test.ts'"
   },
   "keywords": [],
   "author": "",

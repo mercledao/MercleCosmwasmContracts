@@ -1,6 +1,6 @@
 use crate::state::{Role, TokenInfo};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Binary};
+use cosmwasm_std::{Addr, Binary, Empty};
 use cw721::Expiration;
 use schemars::JsonSchema;
 

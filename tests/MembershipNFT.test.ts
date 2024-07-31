@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 
 const rpc = "http://localhost:26657";
 
-describe("MembershipNFTV", async () => {
+describe("MembershipNFT", async () => {
   const [signer1, signer2, signer3, signer4, signer5] = await Promise.all([
     getSigner(1),
     getSigner(2),

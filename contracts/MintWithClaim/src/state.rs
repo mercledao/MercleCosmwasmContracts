@@ -1,9 +1,8 @@
-use cosmwasm_std::{Addr, CustomMsg, StdResult, Storage};
+use cosmwasm_std::{Addr, StdResult, Storage};
 use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
-
 use crate::helpers::get_key_for_role;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, JsonSchema)]
@@ -14,43 +13,27 @@ pub enum Role {
     Blacklisted,
 }
 
-pub struct MintWithClaimContract<'a, C, E, Q>
-where
-    Q: CustomMsg,
-    E: CustomMsg,
-{
+pub struct MintWithClaimContract<'a, C> {
     pub treasury: Item<'a, Addr>,
     pub claim_map: Map<'a, String, bool>,
     pub role_map: Map<'a, (&'a Addr, &'a str), bool>,
 
     pub(crate) _custom_response: PhantomData<C>,
-    pub(crate) _custom_query: PhantomData<Q>,
-    pub(crate) _custom_execute: PhantomData<E>,
 }
 
-impl<C, E, Q> Default for MintWithClaimContract<'static, C, E, Q>
-where
-    E: CustomMsg,
-    Q: CustomMsg,
-{
+impl<C> Default for MintWithClaimContract<'static, C> {
     fn default() -> Self {
         Self::new("treasury", "claim_map", "role_map")
     }
 }
 
-impl<'a, C, E, Q> MintWithClaimContract<'a, C, E, Q>
-where
-    E: CustomMsg,
-    Q: CustomMsg,
-{
+impl<'a, C> MintWithClaimContract<'a, C> {
     fn new(treasury_key: &'a str, claimed_map_key: &'a str, role_map_key: &'a str) -> Self {
         Self {
             treasury: Item::new(treasury_key),
             claim_map: Map::new(claimed_map_key),
             role_map: Map::new(role_map_key),
             _custom_response: PhantomData,
-            _custom_execute: PhantomData,
-            _custom_query: PhantomData,
         }
     }
 

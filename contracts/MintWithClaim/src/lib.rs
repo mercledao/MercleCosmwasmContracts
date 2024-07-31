@@ -1,6 +1,6 @@
 mod error;
-mod helpers;
 mod execute;
+mod helpers;
 pub mod msg;
 mod query;
 pub mod state;
@@ -29,7 +29,7 @@ pub mod entry {
     ) -> StdResult<Response> {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-        let tract = MintWithClaimContract::<Empty, Empty, Empty>::default();
+        let tract = MintWithClaimContract::<Empty>::default();
         tract.instantiate(deps, env, info, msg)
     }
 
@@ -40,13 +40,13 @@ pub mod entry {
         info: MessageInfo,
         msg: ExecuteMsg,
     ) -> Result<Response, ContractError> {
-        let tract = MintWithClaimContract::<Empty, Empty, Empty>::default();
+        let tract = MintWithClaimContract::<Empty>::default();
         tract.execute(deps, env, info, msg)
     }
 
     #[entry_point]
-    pub fn query(deps: Deps, env: Env, msg: QueryMsg<Empty>) -> StdResult<Binary> {
-        let tract = MintWithClaimContract::<Empty, Empty, Empty>::default();
+    pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+        let tract = MintWithClaimContract::<Empty>::default();
         tract.query(deps, env, msg)
     }
 }

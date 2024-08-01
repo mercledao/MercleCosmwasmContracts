@@ -53,10 +53,23 @@ where
         signature: Binary,
         recovery_byte: u8,
     ) -> Result<Response<C>, ContractError> {
+        let is_valid = self
+            .validate_claim(
+                deps.as_ref(),
+                message.to_owned(),
+                signature.to_owned(),
+                recovery_byte,
+            )
+            .unwrap_or_default();
+
+        if !is_valid {
+            return Err(ContractError::VerificationFailure {});
+        }
+
         let treasury = self.treasury.may_load(deps.storage).unwrap().unwrap();
 
         let mint_msg = MemberhsipExecute::Mint(MembershipMintMsg::<Empty> {
-            owner: message.receiver.into_string(),
+            owner: message.to.into_string(),
             token_uri: Some(message.token_uri.to_string()),
             extension: Empty {},
         });
@@ -71,6 +84,10 @@ where
             to_address: treasury.into_string(),
             amount: vec![message.fee],
         };
+
+        self.claim_map
+            .save(deps.storage, &signature, &true)
+            .unwrap();
 
         Ok(Response::new()
             .add_message(CosmosMsg::Wasm(wasm_msg))

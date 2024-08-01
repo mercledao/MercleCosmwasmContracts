@@ -1,7 +1,6 @@
+use crate::state::Role;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary, Coin};
-
-use crate::state::Role;
 
 #[cw_serde]
 pub enum MemberhsipExecute<T> {
@@ -9,7 +8,7 @@ pub enum MemberhsipExecute<T> {
 }
 
 #[cw_serde]
-pub struct MembershipHasRoleMsg {
+pub struct HasRole {
     pub address: Addr,
     pub role: Role,
 }
@@ -33,11 +32,13 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub struct Message {
-    pub receiver: Addr,
+    pub from: Addr,
+    pub to: Addr,
     pub token_uri: String,
     pub fee: Coin,
     pub verifying_contract: Addr,
     pub chain_id: String,
+    pub bech32_hre: String,
 }
 
 #[cw_serde]
@@ -79,8 +80,7 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub struct VerifyClaimResponse {
-    pub value: Vec<u8>,
-    pub hash: String,
+    pub value: bool,
 }
 
 #[cw_serde]

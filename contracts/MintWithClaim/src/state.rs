@@ -1,9 +1,12 @@
-use cosmwasm_std::{Addr, StdResult, Storage};
+use crate::{
+    helpers::{get_key_for_role, recover_signer},
+    msg::{HasRoleResponse, HasRole, Message},
+};
+use cosmwasm_std::{to_json_binary, Addr, Binary, Deps, StdResult, Storage};
 use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
-use crate::helpers::get_key_for_role;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub enum Role {
@@ -15,7 +18,7 @@ pub enum Role {
 
 pub struct MintWithClaimContract<'a, C> {
     pub treasury: Item<'a, Addr>,
-    pub claim_map: Map<'a, String, bool>,
+    pub claim_map: Map<'a, &'a [u8], bool>,
     pub role_map: Map<'a, (&'a Addr, &'a str), bool>,
 
     pub(crate) _custom_response: PhantomData<C>,
@@ -57,5 +60,47 @@ impl<'a, C> MintWithClaimContract<'a, C> {
             .unwrap_or_default();
 
         Ok(val)
+    }
+
+    pub fn validate_claim(
+        &self,
+        deps: Deps,
+        message: Message,
+        signature: Binary,
+        recovery_byte: u8,
+    ) -> StdResult<bool> {
+        let addr = recover_signer(
+            deps,
+            message.to_owned(),
+            signature.to_owned(),
+            recovery_byte,
+        )
+        .unwrap();
+
+        let has_claim_issuer_role_msg = HasRole {
+            address: addr.to_owned(),
+            role: Role::ClaimIssuer,
+        };
+
+        let res: HasRoleResponse = deps
+            .querier
+            .query_wasm_smart(
+                message.to_owned().verifying_contract,
+                &to_json_binary(&has_claim_issuer_role_msg).unwrap(),
+            )
+            .unwrap();
+
+        let has_role = res.value;
+        let is_sign_valid = &message.from == addr;
+
+        let is_duplicate = self
+            .claim_map
+            .may_load(deps.storage, &signature)
+            .unwrap_or_default()
+            .unwrap_or_default();
+
+        let is_valid = !is_duplicate && is_sign_valid && has_role;
+
+        Ok(is_valid)
     }
 }

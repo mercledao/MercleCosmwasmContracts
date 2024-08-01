@@ -1,6 +1,6 @@
 use crate::helpers::get_key_for_role;
 use cosmwasm_std::{Addr, BlockInfo, CustomMsg, StdResult, Storage};
-use cw721::{ContractInfoResponse, Cw721, Expiration};
+use cw721::{ContractInfoResponse, Expiration};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;

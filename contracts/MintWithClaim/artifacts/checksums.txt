@@ -1,1 +1,1 @@
-bbc09d4245b85104e888cd86625e605116e837071b3f7e8db334a00b0ef5498a  mercle_mint_with_claim.wasm
+fe3d3ee02f92941ae5c41b7260ad00a89cf23a8e4a515e2d92bbe6b708664f80  mercle_mint_with_claim.wasm

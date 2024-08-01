@@ -1,8 +1,9 @@
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, Message};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MemberhsipExecute, MembershipMintMsg, Message};
 use crate::state::{MintWithClaimContract, Role};
 use cosmwasm_std::{
-    Addr, BankMsg, Coin, CustomMsg, DepsMut, Env, MessageInfo, Response, StdResult,
+    to_json_binary, Addr, CosmosMsg, CustomMsg, DepsMut, Empty, Env, MessageInfo, Response,
+    StdResult, WasmMsg,
 };
 
 impl<'a, C> MintWithClaimContract<'a, C>
@@ -42,16 +43,25 @@ where
 {
     fn mint_with_claim(
         &self,
-        deps: DepsMut,
+        _deps: DepsMut,
         _info: MessageInfo,
         message: Message,
     ) -> Result<Response<C>, ContractError> {
-        let treasury = self.treasury.may_load(deps.storage).unwrap().unwrap();
+        // let treasury = self.treasury.may_load(deps.storage).unwrap().unwrap();
 
-        Ok(Response::new().add_message(BankMsg::Send {
-            to_address: treasury.clone().into(),
-            amount: Vec::from([Coin::new(message.amount, "uxion")]),
-        }))
+        let mint_msg = MemberhsipExecute::Mint(MembershipMintMsg::<Empty> {
+            owner: _info.sender.into_string(),
+            token_uri: Some("TEST".to_string()),
+            extension: Empty {},
+        });
+
+        let wasm_msg = WasmMsg::Execute {
+            contract_addr: message.nft.to_string(),
+            msg: to_json_binary(&mint_msg).unwrap(),
+            funds: vec![],
+        };
+
+        Ok(Response::new().add_message(CosmosMsg::Wasm(wasm_msg)))
     }
 
     fn set_treasury(

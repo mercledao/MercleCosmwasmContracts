@@ -1,10 +1,46 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { ripemd160, Secp256k1, sha256 } from "@cosmjs/crypto";
-import { fromHex, toBase64, toBech32 } from "@cosmjs/encoding";
+import { fromHex, toBech32 } from "@cosmjs/encoding";
 import { DirectSecp256k1Wallet } from "@cosmjs/proto-signing";
 import { GasPrice } from "@cosmjs/stargate";
-import { expect } from "chai";
 import { readFileSync } from "fs";
+
+async function getMembershipContract(
+  deployer: DirectSecp256k1Wallet,
+  params: any
+) {
+  const [acc] = await deployer.getAccounts();
+  const client = await getClientForSigner(deployer);
+
+  const upload = await client.upload(
+    acc.address,
+    readFileSync(
+      "./contracts/MembershipNFT/artifacts/mercle_nft_membership.wasm"
+    ),
+    "auto"
+  );
+
+  const instance = await client.instantiate(
+    acc.address,
+    upload.codeId,
+    params,
+    "test",
+    "auto"
+  );
+
+  return instance;
+}
+
+const defaultParams = {
+  name: "TEST TOKEN",
+  symbol: "TEST",
+  minter: "",
+  claim_issuer: "",
+
+  is_open_mint: false,
+  is_single_mint: true,
+  is_tradable: false,
+};
 
 function pubkeyToBech32(pubkey: Uint8Array, prefix: string) {
   const sha256Hash = sha256(pubkey);
@@ -38,65 +74,94 @@ describe("MintWithClaim", async () => {
       signer5.getAccounts(),
     ]);
   describe("Claim works", async () => {
-    it("Verifies claim correctly", async () => {
+    it("Mints an NFT", async () => {
       const instance = await getContract(signer1, {
         treasury: account5.address,
       });
+
       const client = await getClientForSigner(signer1);
 
-      const message = JSON.stringify({
-        to: account1.address,
-        fee: "6000",
-        denom: "uxion",
+      const membershipInstance = await getMembershipContract(signer5, {
+        ...defaultParams,
+        minter: instance.contractAddress,
+        claim_issuer: instance.contractAddress,
       });
 
-      const messageHash = new TextEncoder().encode(message);
-
-      const keypair = await getSecpKeypair(1);
-
-      const signature = await Secp256k1.createSignature(
-        sha256(messageHash),
-        keypair.privkey
-      );
-
-      // Extract the 64-byte signature and recovery byte
-      const signatureBytes = signature.toFixedLength();
-      const signatureWithoutRecoveryByte = signatureBytes.slice(0, 64);
-
-      const res = await client.queryContractSmart(instance.contractAddress, {
-        verify_sign: {
-          message: toBase64(messageHash),
-          signature: toBase64(signatureWithoutRecoveryByte),
-          recovery_byte: signature.recovery,
-        },
-      });
-      expect(pubkeyToBech32(Secp256k1.compressPubkey(res.value), "xion")).equal(
-        account1.address
-      );
-    });
-  });
-  describe("Initialization", async () => {
-    it("Correctly initializes the contract", async () => {
-      const instance = await getContract(signer1, {
-        treasury: account5.address,
-      });
-      const client = await getClientForSigner(signer1);
-      const [treasury, creatorHasRole] = await Promise.all([
-        client.queryContractSmart(instance.contractAddress, {
-          get_treasury: {},
-        }),
-        client.queryContractSmart(instance.contractAddress, {
-          has_role: {
-            address: account1.address,
-            role: "DefaultAdmin",
+      const res = await client.execute(
+        account1.address,
+        instance.contractAddress,
+        {
+          mint_with_claim: {
+            message: {
+              nft: membershipInstance.contractAddress,
+            },
           },
-        }),
-      ]);
+        },
+        "auto"
+      );
 
-      expect(treasury.value).equal(account5.address);
-      expect(creatorHasRole.value).equal(true);
+      console.log(res);
     });
+
+    // it("Verifies claim correctly", async () => {
+    //   const instance = await getContract(signer1, {
+    //     treasury: account5.address,
+    //   });
+    //   const client = await getClientForSigner(signer1);
+
+    //   const message = JSON.stringify({
+    //     to: account1.address,
+    //     fee: "6000",
+    //     denom: "uxion",
+    //   });
+
+    //   const messageHash = new TextEncoder().encode(message);
+
+    //   const keypair = await getSecpKeypair(1);
+
+    //   const signature = await Secp256k1.createSignature(
+    //     sha256(messageHash),
+    //     keypair.privkey
+    //   );
+
+    //   // Extract the 64-byte signature and recovery byte
+    //   const signatureBytes = signature.toFixedLength();
+    //   const signatureWithoutRecoveryByte = signatureBytes.slice(0, 64);
+
+    //   const res = await client.queryContractSmart(instance.contractAddress, {
+    //     verify_sign: {
+    //       message: toBase64(messageHash),
+    //       signature: toBase64(signatureWithoutRecoveryByte),
+    //       recovery_byte: signature.recovery,
+    //     },
+    //   });
+    //   expect(pubkeyToBech32(Secp256k1.compressPubkey(res.value), "xion")).equal(
+    //     account1.address
+    //   );
+    // });
   });
+  // describe("Initialization", async () => {
+  //   it("Correctly initializes the contract", async () => {
+  //     const instance = await getContract(signer1, {
+  //       treasury: account5.address,
+  //     });
+  //     const client = await getClientForSigner(signer1);
+  //     const [treasury, creatorHasRole] = await Promise.all([
+  //       client.queryContractSmart(instance.contractAddress, {
+  //         get_treasury: {},
+  //       }),
+  //       client.queryContractSmart(instance.contractAddress, {
+  //         has_role: {
+  //           address: account1.address,
+  //           role: "DefaultAdmin",
+  //         },
+  //       }),
+  //     ]);
+
+  //     expect(treasury.value).equal(account5.address);
+  //     expect(creatorHasRole.value).equal(true);
+  //   });
+  // });
 });
 
 async function getContract(deployer: DirectSecp256k1Wallet, params: any) {

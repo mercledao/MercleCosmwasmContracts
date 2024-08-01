@@ -991,7 +991,10 @@ describe("MembershipNFT", async () => {
   }
 });
 
-async function getContract(deployer: DirectSecp256k1Wallet, params: any) {
+export async function getContract(
+  deployer: DirectSecp256k1Wallet,
+  params: any
+) {
   const [acc] = await deployer.getAccounts();
   const client = await getClientForSigner(deployer);
 

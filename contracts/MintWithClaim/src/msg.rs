@@ -10,9 +10,19 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub struct Message {
-    pub amount: u128,
-    pub signature: Binary,
-    pub recovery_byte: u8,
+    pub nft: Addr,
+}
+
+#[cw_serde]
+pub enum MemberhsipExecute<T> {
+    Mint(MembershipMintMsg<T>),
+}
+
+#[cw_serde]
+pub struct MembershipMintMsg<T> {
+    pub owner: String,
+    pub token_uri: Option<String>,
+    pub extension: T,
 }
 
 #[cw_serde]
@@ -27,7 +37,11 @@ pub enum ExecuteMsg {
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(VerifyClaimResponse)]
-    VerifySign { message: Binary, signature: Binary, recovery_byte : u8 },
+    VerifySign {
+        message: Binary,
+        signature: Binary,
+        recovery_byte: u8,
+    },
 
     #[returns(TreasuryResponse)]
     GetTreasury {},

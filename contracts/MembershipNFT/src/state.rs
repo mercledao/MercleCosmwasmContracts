@@ -29,7 +29,6 @@ where
     pub open_mint: Item<'a, bool>,
     pub tradable: Item<'a, bool>,
 
-    /// Stored as (granter, operator) giving operator full control over granter's account
     pub operators: Map<'a, (&'a Addr, &'a Addr), Expiration>,
     pub tokens: IndexedMap<'a, &'a str, TokenInfo<T>, TokenIndexes<'a, T>>,
     pub role_map: Map<'a, (&'a Addr, &'a str), bool>,
@@ -38,16 +37,6 @@ where
     pub(crate) _custom_response: PhantomData<C>,
     pub(crate) _custom_query: PhantomData<Q>,
     pub(crate) _custom_execute: PhantomData<E>,
-}
-
-// This is a signal, the implementations are in other files
-impl<'a, T, C, E, Q> Cw721<T, C> for Cw721Contract<'a, T, C, E, Q>
-where
-    T: Serialize + DeserializeOwned + Clone,
-    C: CustomMsg,
-    E: CustomMsg,
-    Q: CustomMsg,
-{
 }
 
 impl<T, C, E, Q> Default for Cw721Contract<'static, T, C, E, Q>
@@ -175,25 +164,17 @@ where
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TokenInfo<T> {
-    /// The owner of the newly minted NFT
     pub owner: Addr,
-    /// Approvals are stored here, as we clear them all upon transfer and cannot accumulate much
     pub approvals: Vec<Approval>,
 
-    /// Universal resource identifier for this NFT
-    /// Should point to a JSON file that conforms to the ERC721
-    /// Metadata JSON Schema
     pub token_uri: Option<String>,
 
-    /// You can add any custom metadata here when you extend cw721-base
     pub extension: T,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 pub struct Approval {
-    /// Account that can transfer/send the token
     pub spender: Addr,
-    /// When the Approval expires (maybe Expiration::never)
     pub expires: Expiration,
 }
 

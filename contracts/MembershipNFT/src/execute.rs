@@ -124,7 +124,6 @@ where
             return Err(ContractError::Claimed {});
         }
 
-        // create the token
         let token = TokenInfo {
             owner: address.to_owned(),
             approvals: vec![],
@@ -415,21 +414,16 @@ where
         info: &MessageInfo,
         spender: &str,
         token_id: &str,
-        // if add == false, remove. if add == true, remove then set with this expiration
         add: bool,
         expires: Option<Expiration>,
     ) -> Result<TokenInfo<T>, ContractError> {
         let mut token = self.tokens.load(deps.storage, token_id)?;
-        // ensure we have permissions
         self.check_can_approve(deps.as_ref(), env, info, &token)?;
 
-        // update the approval list (remove any for the same spender before adding)
         let spender_addr = deps.api.addr_validate(spender)?;
         token.approvals.retain(|apr| apr.spender != spender_addr);
 
-        // only difference between approve and revoke
         if add {
-            // reject expired data as invalid
             let expires = expires.unwrap_or_default();
             if expires.is_expired(&env.block) {
                 return Err(ContractError::Expired {});
@@ -446,7 +440,6 @@ where
         Ok(token)
     }
 
-    /// returns true iff the sender can execute approve or reject on the contract
     pub fn check_can_approve(
         &self,
         deps: Deps,
@@ -454,11 +447,9 @@ where
         info: &MessageInfo,
         token: &TokenInfo<T>,
     ) -> Result<(), ContractError> {
-        // owner can approve
         if token.owner == info.sender {
             return Ok(());
         }
-        // operator can approve
         let op = self
             .operators
             .may_load(deps.storage, (&token.owner, &info.sender))?;
@@ -474,7 +465,6 @@ where
         }
     }
 
-    /// returns true iff the sender can transfer ownership of the token
     pub fn check_can_send(
         &self,
         deps: Deps,
@@ -494,12 +484,10 @@ where
         if !self._is_tradable(deps.storage)? {
             return Err(ContractError::Souldbound {});
         }
-        // owner can send
         if token.owner == info.sender {
             return Ok(());
         }
 
-        // any non-expired token approval can send
         if token
             .approvals
             .iter()
@@ -508,7 +496,6 @@ where
             return Ok(());
         }
 
-        // operator can send
         let op = self
             .operators
             .may_load(deps.storage, (&token.owner, &info.sender))?;

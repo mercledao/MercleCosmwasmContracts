@@ -58,7 +58,6 @@ where
         })
     }
 
-    /// operator returns the approval status of an operator for a given owner if exists
     fn operator(
         &self,
         deps: Deps,
@@ -90,7 +89,6 @@ where
         Err(StdError::not_found("Approval not found"))
     }
 
-    /// operators returns all operators owner given access to
     fn operators(
         &self,
         deps: Deps,
@@ -128,7 +126,6 @@ where
     ) -> StdResult<ApprovalResponse> {
         let token = self.tokens.load(deps.storage, &token_id)?;
 
-        // token owner has absolute approval
         if token.owner == spender {
             let approval = cw721::Approval {
                 spender: token.owner.to_string(),
@@ -151,13 +148,11 @@ where
         if filtered.is_empty() {
             return Err(StdError::not_found("Approval not found"));
         }
-        // we expect only one item
         let approval = filtered[0].clone();
 
         Ok(ApprovalResponse { approval })
     }
 
-    /// approvals returns all approvals owner given access to
     fn approvals(
         &self,
         deps: Deps,
@@ -287,7 +282,6 @@ where
             .tokens
             .range(deps.storage, None, None, Order::Descending);
 
-        // Find the token where the owner matches the provided address
         let token = tokens.find(|result| {
             if let Ok((_, token_info)) = result {
                 token_info.owner == address

@@ -1,6 +1,6 @@
 mod error;
 mod execute;
-mod helpers;
+pub mod helpers;
 pub mod msg;
 mod query;
 pub mod state;
@@ -19,7 +19,6 @@ pub mod entry {
         entry_point, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult,
     };
 
-    // This makes a conscious choice on the various generics used by the contract
     #[entry_point]
     pub fn instantiate(
         deps: DepsMut,

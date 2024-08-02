@@ -38,6 +38,7 @@ pub struct Message {
     pub verifying_contract: Addr,
     pub chain_id: String,
     pub bech32_hre: String,
+    pub timestamp: String,
 }
 
 #[cw_serde]

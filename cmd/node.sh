@@ -41,7 +41,7 @@ xiond genesis add-genesis-account $MY_ACC3_ADDRESS 1000000000uxion --home $HOME
 xiond keys add account4 --keyring-backend test --home $HOME 
 yes | xiond keys export account4 --unsafe --unarmored-hex --keyring-backend test --home $HOME > keys/account4.key
 MY_ACC4_ADDRESS=$(xiond keys show account4 -a --keyring-backend test --home $HOME)
-xiond genesis add-genesis-account $MY_ACC4_ADDRESS 1000000000uxion --home $HOME
+xiond genesis add-genesis-account $MY_ACC4_ADDRESS "1000000000uxion,10000000utest" --home $HOME
 
 xiond keys add account5 --keyring-backend test --home $HOME 
 yes | xiond keys export account5 --unsafe --unarmored-hex --keyring-backend test --home $HOME > keys/account5.key

@@ -5,7 +5,7 @@ import { DirectSecp256k1Wallet } from "@cosmjs/proto-signing";
 import { GasPrice } from "@cosmjs/stargate";
 import { readFileSync } from "fs";
 
-const rpc = "https://testnet-api.xion-api.com:443/websocket";
+const rpc = "https://rpc.xion-testnet-1.burnt.com:443";
 
 const defaultParams = {
   name: "TEST TOKEN",
@@ -14,7 +14,7 @@ const defaultParams = {
   claim_issuer: "",
 
   is_open_mint: false,
-  is_single_mint: true,
+  is_single_mint: false,
   is_tradable: false,
 };
 
@@ -32,11 +32,11 @@ async function main() {
   const membership = await deployAndInstantiateMembershipContract(signer, {
     ...defaultParams,
     minter: mwc.contractAddress,
-    claim_issuer: mwc.contractAddress,
+    claim_issuer: "xion10vkx48vsls206gyrw3chz657zxu2cttd2nc7x0",
   });
 
-  console.log("mwc", membership);
-  console.log("mwc ca", membership.contractAddress);
+  console.log("mem", membership);
+  console.log("mem ca", membership.contractAddress);
 }
 
 main();

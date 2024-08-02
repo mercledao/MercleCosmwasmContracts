@@ -3,7 +3,7 @@ use crate::{
     msg::{HasRoleResponse, MemberhsipQuery, Message},
 };
 use cosmwasm_std::{
-    to_json_binary, Addr, Binary, Deps, QueryRequest, StdError, StdResult, Storage, WasmQuery,
+    to_json_binary, Addr, Binary, Deps, QueryRequest, StdResult, Storage, WasmQuery,
 };
 use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;

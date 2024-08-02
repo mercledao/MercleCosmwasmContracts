@@ -72,6 +72,10 @@ where
             });
         }
 
+        if message.to != _info.sender {
+            return Err(ContractError::NotReceiver {});
+        }
+
         let treasury = self.treasury.may_load(deps.storage).unwrap().unwrap();
 
         let mint_msg = MemberhsipExecute::Mint(MembershipMintMsg::<Empty> {

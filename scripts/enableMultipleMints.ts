@@ -19,8 +19,8 @@ async function main() {
     acc.address,
     "xion1t29u0nvdadez08mkh7t6c3a02znjmkej9pu24halg2mlnl9jt9ts5p2h9m",
     {
-      set_is_single_mint: {
-        value: false,
+      set_is_open_mint: {
+        value: true,
       },
     },
     "auto"

@@ -8,9 +8,8 @@ pub enum MemberhsipExecute<T> {
 }
 
 #[cw_serde]
-pub struct HasRole {
-    pub address: Addr,
-    pub role: Role,
+pub enum MemberhsipQuery {
+    HasRole { address: Addr, role: Role },
 }
 
 #[cw_serde]

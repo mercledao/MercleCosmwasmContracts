@@ -53,17 +53,23 @@ where
         signature: Binary,
         recovery_byte: u8,
     ) -> Result<Response<C>, ContractError> {
-        let is_valid = self
+        let (is_duplicate, is_sign_valid, has_role) = self
             .validate_claim(
                 deps.as_ref(),
                 message.to_owned(),
                 signature.to_owned(),
                 recovery_byte,
             )
-            .unwrap_or_default();
+            .map_err(|e| ContractError::ValidationError { msg: e.to_string() })?;
+
+        let is_valid = !is_duplicate && is_sign_valid && has_role;
 
         if !is_valid {
-            return Err(ContractError::VerificationFailure {});
+            return Err(ContractError::VerificationFailure {
+                has_role,
+                is_duplicate,
+                is_sign_valid,
+            });
         }
 
         let treasury = self.treasury.may_load(deps.storage).unwrap().unwrap();

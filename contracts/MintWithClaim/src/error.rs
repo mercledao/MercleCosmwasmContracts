@@ -8,6 +8,13 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
-    #[error("Verification failed")]
-    VerificationFailure {},
+    #[error("failure {msg}")]
+    ValidationError { msg: String },
+
+    #[error("Verification failed, {is_duplicate} {is_sign_valid} {has_role}")]
+    VerificationFailure {
+        is_duplicate: bool,
+        is_sign_valid: bool,
+        has_role: bool,
+    },
 }

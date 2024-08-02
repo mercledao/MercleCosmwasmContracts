@@ -5,7 +5,7 @@ import { DirectSecp256k1Wallet } from "@cosmjs/proto-signing";
 import { GasPrice } from "@cosmjs/stargate";
 import { readFileSync } from "fs";
 
-const rpc = "https://rpc.xion-testnet-1.burnt.com:443";
+const rpc = "https://testnet-api.xion-api.com:443/websocket";
 
 const defaultParams = {
   name: "TEST TOKEN",

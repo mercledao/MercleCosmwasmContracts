@@ -1,8 +1,10 @@
 use crate::{
     helpers::{get_key_for_role, recover_signer},
-    msg::{HasRoleResponse, HasRole, Message},
+    msg::{HasRoleResponse, MemberhsipQuery, Message},
 };
-use cosmwasm_std::{to_json_binary, Addr, Binary, Deps, StdResult, Storage};
+use cosmwasm_std::{
+    to_json_binary, Addr, Binary, Deps, QueryRequest, StdError, StdResult, Storage, WasmQuery,
+};
 use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -68,39 +70,35 @@ impl<'a, C> MintWithClaimContract<'a, C> {
         message: Message,
         signature: Binary,
         recovery_byte: u8,
-    ) -> StdResult<bool> {
+    ) -> StdResult<(bool, bool, bool)> {
         let addr = recover_signer(
             deps,
             message.to_owned(),
             signature.to_owned(),
             recovery_byte,
-        )
-        .unwrap();
+        )?;
 
-        let has_claim_issuer_role_msg = HasRole {
+        let has_claim_issuer_role_msg: MemberhsipQuery = MemberhsipQuery::HasRole {
             address: addr.to_owned(),
             role: Role::ClaimIssuer,
         };
 
-        let res: HasRoleResponse = deps
-            .querier
-            .query_wasm_smart(
-                message.to_owned().verifying_contract,
-                &to_json_binary(&has_claim_issuer_role_msg).unwrap(),
-            )
-            .unwrap();
+        let query_response: HasRoleResponse =
+            deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                contract_addr: message.verifying_contract.to_string(),
+                msg: to_json_binary(&has_claim_issuer_role_msg)?,
+            }))?;
 
-        let has_role = res.value;
+        let has_role = query_response.value;
+
         let is_sign_valid = &message.from == addr;
 
         let is_duplicate = self
             .claim_map
-            .may_load(deps.storage, &signature)
-            .unwrap_or_default()
+            .may_load(deps.storage, &signature)?
             .unwrap_or_default();
+        deps.api.debug(&format!("Is duplicate: {}", is_duplicate));
 
-        let is_valid = !is_duplicate && is_sign_valid && has_role;
-
-        Ok(is_valid)
+        Ok((is_duplicate, is_sign_valid, has_role))
     }
 }

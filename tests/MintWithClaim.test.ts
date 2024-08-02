@@ -2,8 +2,7 @@ import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { ripemd160, Secp256k1, sha256 } from "@cosmjs/crypto";
 import { fromHex, toBase64, toBech32 } from "@cosmjs/encoding";
 import { DirectSecp256k1Wallet } from "@cosmjs/proto-signing";
-import { GasPrice } from "@cosmjs/stargate";
-import { expect } from "chai";
+import { coin, GasPrice } from "@cosmjs/stargate";
 import { readFileSync } from "fs";
 
 async function getMembershipContract(
@@ -75,77 +74,94 @@ describe("MintWithClaim", async () => {
       signer5.getAccounts(),
     ]);
   describe("Claim works", async () => {
-    // it("Mints an NFT", async () => {
-    //   const instance = await getContract(signer1, {
-    //     treasury: account5.address,
-    //   });
-
-    //   const client = await getClientForSigner(signer1);
-
-    //   const membershipInstance = await getMembershipContract(signer5, {
-    //     ...defaultParams,
-    //     minter: instance.contractAddress,
-    //     claim_issuer: instance.contractAddress,
-    //   });
-
-    //   const res = await client.execute(
-    //     account1.address,
-    //     instance.contractAddress,
-    //     {
-    //       mint_with_claim: {
-    //         message: {
-    //           nft: membershipInstance.contractAddress,
-    //         },
-    //       },
-    //     },
-    //     "auto"
-    //   );
-
-    //   console.log(res);
-    // });
-
-    it("Verifies claim correctly", async () => {
+    it("Mints an NFT", async () => {
       const instance = await getContract(signer1, {
         treasury: account5.address,
       });
-      const client = await getClientForSigner(signer1);
+      let client = await getClientForSigner(signer1);
+      const membershipInstance = await getMembershipContract(signer1, {
+        ...defaultParams,
+        minter: instance.contractAddress,
+        claim_issuer: account2.address,
+      });
 
       const message = {
-        receiver: account5.address,
-        token_uri: "test",
+        from: account2.address,
+        to: account3.address,
+        token_uri: "TEST",
         fee: {
           denom: "uxion",
-          amount: "6",
+          amount: "800",
         },
-        verifying_contract: instance.contractAddress,
-        chain_id: "xion",
+        verifying_contract: membershipInstance.contractAddress,
+        chain_id: "xion-testnet-1",
+        bech32_hre: "xion",
       };
 
       const messageHash = new TextEncoder().encode(JSON.stringify(message));
-
-      const keypair = await getSecpKeypair(1);
-
+      const keypair = await getSecpKeypair(2);
       const signature = await Secp256k1.createSignature(
         sha256(messageHash),
         keypair.privkey
       );
-
       // Extract the 64-byte signature and recovery byte
       const signatureBytes = signature.toFixedLength();
       const signatureWithoutRecoveryByte = signatureBytes.slice(0, 64);
 
-      const res = await client.queryContractSmart(instance.contractAddress, {
-        verify_sign: {
-          message: message,
-          signature: toBase64(signatureWithoutRecoveryByte),
-          recovery_byte: signature.recovery,
+      client = await getClientForSigner(signer3);
+      const res = await client.execute(
+        account3.address,
+        instance.contractAddress,
+        {
+          mint_with_claim: {
+            message: message,
+            signature: toBase64(signatureWithoutRecoveryByte),
+            recovery_byte: signature.recovery,
+          },
         },
-      });
-
-      expect(pubkeyToBech32(Secp256k1.compressPubkey(res.value), "xion")).equal(
-        account1.address
+        "auto",
+        "",
+        [coin(800, "uxion")]
       );
+
+      console.log(res);
     });
+
+    // it("Verifies claim correctly", async () => {
+    //   const instance = await getContract(signer1, {
+    //     treasury: account5.address,
+    //   });
+    //   const client = await getClientForSigner(signer1);
+    //   const message = {
+    //     from: account5.address,
+    //     to: account1.address,
+    //     token_uri: "TEST",
+    //     fee: {
+    //       denom: "uxion",
+    //       amount: "8",
+    //     },
+    //     verifying_contract: instance.contractAddress,
+    //     chain_id: "xion-testnet-1",
+    //     bech32_hre: "xion",
+    //   };
+    //   const messageHash = new TextEncoder().encode(JSON.stringify(message));
+    //   const keypair = await getSecpKeypair(1);
+    //   const signature = await Secp256k1.createSignature(
+    //     sha256(messageHash),
+    //     keypair.privkey
+    //   );
+    //   // Extract the 64-byte signature and recovery byte
+    //   const signatureBytes = signature.toFixedLength();
+    //   const signatureWithoutRecoveryByte = signatureBytes.slice(0, 64);
+    //   const res = await client.queryContractSmart(instance.contractAddress, {
+    //     verify_sign: {
+    //       message: message,
+    //       signature: toBase64(signatureWithoutRecoveryByte),
+    //       recovery_byte: signature.recovery,
+    //     },
+    //   });
+    //   expect(res.value).equal(account1.address);
+    // });
   });
   // describe("Initialization", async () => {
   //   it("Correctly initializes the contract", async () => {

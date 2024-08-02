@@ -26,9 +26,16 @@ impl<'a, C> MintWithClaimContract<'a, C> {
         signature: Binary,
         recovery_byte: u8,
     ) -> StdResult<VerifyClaimResponse> {
-        let value = self
-            .validate_claim(deps, message, signature, recovery_byte)
+        let (is_duplicate, is_sign_valid, has_role) = self
+            .validate_claim(
+                deps,
+                message.to_owned(),
+                signature.to_owned(),
+                recovery_byte,
+            )
             .unwrap_or_default();
+
+        let value = !is_duplicate && is_sign_valid && has_role;
 
         Ok(VerifyClaimResponse { value })
     }
